@@ -74,8 +74,8 @@ MIF/
 - **Vertical Slice Architecture**: Features organized as self-contained modules
 - **SharedKernel**: No dependencies, provides common abstractions and DbContext
 - **Modules**: Depend only on SharedKernel (high cohesion, low coupling)
-  - Each module defines its own API endpoints via `IEndpoint` interface
-- **API**: Thin host that auto-discovers and maps module endpoints
+  - Each module defines its own API endpoints via `IEndpoint` interface (implements `MapEndpoint` method)
+- **API**: Thin host that auto-discovers and maps module endpoints using `MapEndpoints()` extension
 - **WebUI**: Blazor UI, references SharedKernel and feature modules
 
 ## 🔧 Key Technologies
@@ -88,7 +88,10 @@ MIF/
 | **Wolverine** | CQRS/Messaging | 5.11.0 |
 | **FluentValidation** | Input Validation | 12.1.1 |
 | **Entity Framework Core** | ORM | 10.0.2 |
-| **SQLite** | Database | 10.0.2 || **Mapster** | Object Mapping | 7.4.0 || **Azure Monitor OpenTelemetry** | Observability | 1.3.0 |
+| **SQLite** | Database | 10.0.2 |
+| **Mapster** | Object Mapping | 7.4.0 |
+| **Azure Monitor OpenTelemetry** | Observability | 1.3.0 |
+
 ## 📝 Development Workflows
 
 ### Adding a New Feature
@@ -111,17 +114,22 @@ public class CreateTodoCommandHandler
         _logger = logger;
     }
 
-    public async Task<Result<int>> Handle(CreateTodoCommand command)
+    public async Task<Result<int>> Handle(CreateTodoCommand command, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Creating new todo with title: {Title}", command.Title);
         
-        var todo = new TodoItem { Title = command.Title };
-        var result = await _repository.AddAsync(todo);
+        var entity = new TodoItem
+        {
+            Title = command.Title,
+            IsCompleted = false
+        };
+        
+        var result = await _repository.AddAsync(entity, cancellationToken);
         
         if (result.IsFailure)
         {
             _logger.LogWarning("Failed to create todo: {Error}", result.Error.Message);
-            return result;
+            return Result.Failure<int>(result.Error);
         }
         
         _logger.LogInformation("Todo created successfully with ID: {TodoId}", result.Value);
@@ -133,6 +141,8 @@ public class CreateTodoCommandHandler
 **Query Example** (for read operations):
 ```csharp
 // Modules.Todos/Application/Queries/GetTodosQuery.cs
+using Mapster;
+
 public record GetTodosQuery(int PageNumber = 1, int PageSize = 10);
 
 public class GetTodosQueryHandler
@@ -146,9 +156,11 @@ public class GetTodosQueryHandler
         _logger = logger;
     }
 
-    public async Task<Result<PaginatedList<TodoItemDto>>> Handle(GetTodosQuery query)
+    public async Task<Result<PaginatedList<TodoItemDto>>> Handle(GetTodosQuery query, CancellationToken cancellationToken)
     {
-        var result = await _repository.GetPaginatedAsync(query.PageNumber, query.PageSize);
+        _logger.LogInformation("Retrieving todos - Page: {PageNumber}, PageSize: {PageSize}", query.PageNumber, query.PageSize);
+        
+        var result = await _repository.GetTodosWithPaginationAsync(query.PageNumber, query.PageSize, cancellationToken);
         
         if (result.IsFailure)
         {
@@ -156,7 +168,12 @@ public class GetTodosQueryHandler
             return Result.Failure<PaginatedList<TodoItemDto>>(result.Error);
         }
         
-        return Result.Success(result.Value);
+        var paginatedTodos = result.Value!;
+        var dtos = paginatedTodos.Items.Adapt<List<TodoItemDto>>();
+        
+        _logger.LogInformation("Retrieved {Count} todos out of {TotalCount} total", dtos.Count, paginatedTodos.TotalCount);
+        
+        return Result.Success(new PaginatedList<TodoItemDto>(dtos, paginatedTodos.TotalCount, paginatedTodos.PageNumber, query.PageSize));
     }
 }
 ```
@@ -229,18 +246,19 @@ Wolverine will automatically discover and apply validators!
 // Modules.Todos/Application/ITodoRepository.cs
 public interface ITodoRepository : IRepository<TodoItem>
 {
-    Task<Result<TodoItem>> GetByIdAsync(int id);
+    Task<Result<TodoItem>> GetByIdAsync(int id, CancellationToken cancellationToken);
+    Task<Result<PaginatedList<TodoItem>>> GetTodosWithPaginationAsync(int pageNumber, int pageSize, CancellationToken cancellationToken);
 }
 ```
 
 #### 2. Implement in Repository
 ```csharp
 // Modules.Todos/Infrastructure/TodoRepository.cs
-public async Task<Result<TodoItem>> GetByIdAsync(int id)
+public async Task<Result<TodoItem>> GetByIdAsync(int id, CancellationToken cancellationToken)
 {
     try
     {
-        var item = await _todoItems.FindAsync(new object[] { id }, cancellationToken);
+        var item = await _dbSet.FindAsync(new object[] { id }, cancellationToken);
         return item != null
             ? Result.Success(item)
             : Result.Failure<TodoItem>(Error.NotFound(nameof(TodoItem), id));
@@ -263,6 +281,192 @@ dotnet ef migrations add MigrationName --project src/MIF.SharedKernel --startup-
 # Apply migration
 dotnet ef database update --project src/MIF.SharedKernel --startup-project src/MIF.WebUI
 ```
+
+### Adding a New Module
+
+To create a completely new feature module:
+
+#### 1. Create Project Structure
+```bash
+# Create the module project
+dotnet new classlib -n MIF.Modules.YourFeature -o src/MIF.Modules.YourFeature
+
+# Add reference to SharedKernel
+dotnet add src/MIF.Modules.YourFeature/MIF.Modules.YourFeature.csproj reference src/MIF.SharedKernel/MIF.SharedKernel.csproj
+
+# Add to solution
+dotnet sln add src/MIF.Modules.YourFeature/MIF.Modules.YourFeature.csproj
+```
+
+#### 2. Create Folder Structure
+```
+MIF.Modules.YourFeature/
+├── Domain/              # Your entities
+├── Application/         # Commands, queries, handlers, DTOs, validators
+│   ├── Commands/
+│   ├── Queries/
+│   ├── DTOs/
+│   └── IYourFeatureRepository.cs
+├── Infrastructure/      # Repository implementations, EF configurations
+├── Endpoints/           # API endpoints (for MIF.API)
+└── DependencyInjection.cs
+```
+
+#### 3. Create DependencyInjection.cs
+```csharp
+using Microsoft.Extensions.DependencyInjection;
+
+namespace MIF.Modules.YourFeature;
+
+public static class DependencyInjection
+{
+    public static IServiceCollection AddYourFeatureModule(this IServiceCollection services)
+    {
+        // Register module-specific services
+        services.AddScoped<IYourFeatureRepository, YourFeatureRepository>();
+        
+        return services;
+    }
+}
+```
+
+#### 4. Register in MIF.API
+```csharp
+// src/MIF.API/Program.cs
+using MIF.Modules.YourFeature;
+
+// ... other code ...
+
+// Register Module Services
+builder.Services.AddYourFeatureModule();
+
+// Configure Wolverine - add module assembly
+builder.Host.UseWolverine(opts =>
+{
+    opts.UseFluentValidation();
+    opts.Discovery.IncludeAssembly(typeof(MIF.Modules.Todos.DependencyInjection).Assembly);
+    opts.Discovery.IncludeAssembly(typeof(MIF.Modules.YourFeature.DependencyInjection).Assembly); // Add this
+});
+
+// Add Endpoints from Modules - add module assembly
+var moduleAssemblies = new[] { 
+    typeof(MIF.Modules.Todos.DependencyInjection).Assembly,
+    typeof(MIF.Modules.YourFeature.DependencyInjection).Assembly  // Add this
+};
+builder.Services.AddEndpoints(moduleAssemblies);
+```
+
+#### 5. Register in MIF.WebUI (if needed)
+```csharp
+// src/MIF.WebUI/Program.cs
+using MIF.Modules.YourFeature;
+
+// ... other code ...
+
+// Add modules
+builder.Services.AddYourFeatureModule();
+
+// Configure Wolverine
+builder.Host.UseWolverine(opts =>
+{
+    opts.UseFluentValidation();
+    opts.Discovery.IncludeAssembly(typeof(MIF.Modules.Todos.DependencyInjection).Assembly);
+    opts.Discovery.IncludeAssembly(typeof(MIF.Modules.YourFeature.DependencyInjection).Assembly); // Add this
+});
+```
+
+### Creating API Endpoints
+
+API endpoints are defined in the `Endpoints` folder and implement the `IEndpoint` interface:
+
+```csharp
+// src/MIF.Modules.YourFeature/Endpoints/YourFeatureEndpoints.cs
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using MIF.SharedKernel.Interfaces;
+using MIF.SharedKernel.Application;
+using Wolverine;
+
+namespace MIF.Modules.YourFeature.Endpoints;
+
+public class YourFeatureEndpoints : IEndpoint
+{
+    public void MapEndpoint(IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("/api/yourfeature")
+            .WithTags("YourFeature");
+
+        // POST endpoint
+        group.MapPost("/", async (CreateYourItemCommand command, IMessageBus bus) =>
+        {
+            var result = await bus.InvokeAsync<Result<int>>(command);
+            return result.IsSuccess 
+                ? Results.Ok(result.Value) 
+                : Results.BadRequest(result.Error);
+        })
+        .WithName("CreateYourItem")
+        .WithOpenApi();
+
+        // GET endpoint with pagination
+        group.MapGet("/", async (int? pageNumber, int? pageSize, IMessageBus bus) =>
+        {
+            var query = new GetYourItemsQuery(pageNumber ?? 1, pageSize ?? 10);
+            var result = await bus.InvokeAsync<Result<PaginatedList<YourItemDto>>>(query);
+            return result.IsSuccess 
+                ? Results.Ok(result.Value) 
+                : Results.BadRequest(result.Error);
+        })
+        .WithName("GetYourItems")
+        .WithOpenApi();
+
+        // GET by ID endpoint
+        group.MapGet("/{id}", async (int id, IMessageBus bus) =>
+        {
+            var query = new GetYourItemQuery(id);
+            var result = await bus.InvokeAsync<Result<YourItemDto>>(query);
+            return result.IsSuccess 
+                ? Results.Ok(result.Value) 
+                : Results.NotFound(result.Error);
+        })
+        .WithName("GetYourItemById")
+        .WithOpenApi();
+
+        // PUT endpoint
+        group.MapPut("/{id}", async (int id, UpdateYourItemCommand command, IMessageBus bus) =>
+        {
+            if (id != command.Id)
+                return Results.BadRequest("ID mismatch");
+
+            var result = await bus.InvokeAsync<Result>(command);
+            return result.IsSuccess 
+                ? Results.NoContent() 
+                : Results.BadRequest(result.Error);
+        })
+        .WithName("UpdateYourItem")
+        .WithOpenApi();
+
+        // DELETE endpoint
+        group.MapDelete("/{id}", async (int id, IMessageBus bus) =>
+        {
+            var command = new DeleteYourItemCommand(id);
+            var result = await bus.InvokeAsync<Result>(command);
+            return result.IsSuccess 
+                ? Results.NoContent() 
+                : Results.NotFound(result.Error);
+        })
+        .WithName("DeleteYourItem")
+        .WithOpenApi();
+    }
+}
+```
+
+**Key Points:**
+- Use `MapGroup()` to group related endpoints under a common path
+- Use `WithTags()` for OpenAPI documentation grouping
+- Use `WithName()` to give endpoints unique names
+- Use `WithOpenApi()` to include in OpenAPI documentation
+- Always return appropriate HTTP status codes based on `Result.IsSuccess`
 
 ## 🧪 Testing
 
@@ -303,7 +507,7 @@ public class TodoRepositoryTests
         var todo = new TodoItem { Title = "Test" };
 
         // Act
-        var result = await repository.AddAsync(todo);
+        var result = await repository.AddAsync(todo, CancellationToken.None);
 
         // Assert
         Assert.True(result.IsSuccess);
@@ -452,12 +656,12 @@ TypeAdapterConfig<Order, OrderDto>
 **How It Works**:
 ```csharp
 // Return Result<T> for operations that return a value
-public async Task<Result<int>> AddAsync(TodoItem entity)
+public async Task<Result<int>> AddAsync(TodoItem entity, CancellationToken cancellationToken)
 {
     try
     {
         _dbSet.Add(entity);
-        await _context.SaveChangesAsync();
+        await _context.SaveChangesAsync(cancellationToken);
         return Result.Success(entity.Id);
     }
     catch (DbUpdateException ex)
@@ -467,14 +671,14 @@ public async Task<Result<int>> AddAsync(TodoItem entity)
 }
 
 // Return Result (non-generic) for operations without a return value
-public async Task<Result> DeleteAsync(int id)
+public async Task<Result> DeleteAsync(int id, CancellationToken cancellationToken)
 {
-    var result = await GetByIdAsync(id);
+    var result = await GetByIdAsync(id, cancellationToken);
     if (result.IsFailure)
         return Result.Failure(result.Error);
     
     _dbSet.Remove(result.Value);
-    await _context.SaveChangesAsync();
+    await _context.SaveChangesAsync(cancellationToken);
     return Result.Success();
 }
 ```
@@ -487,7 +691,7 @@ public async Task<Result> DeleteAsync(int id)
 
 **Handling Results**:
 ```csharp
-var result = await repository.GetByIdAsync(id);
+var result = await repository.GetByIdAsync(id, cancellationToken);
 
 if (result.IsSuccess)
 {
