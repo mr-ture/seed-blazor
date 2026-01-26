@@ -13,49 +13,148 @@ This project follows **Vertical Slice Architecture** to organize code by feature
 
 ### 1. SharedKernel (`MIF.SharedKernel`)
 *Common Abstractions.*
-- Contains shared interfaces, base classes, and utilities.
-- **Dependencies**: None.
+- Contains shared interfaces, base classes, and utilities used across all modules.
+- **Dependencies**: None (except EF Core for data layer).
 - **Key Components**: 
   - `IEntity`, `EntityBase`: Base entity abstractions
   - `IRepository<T>`: Generic repository interface
   - `Result<T>`: Result pattern for error handling
   - `PaginatedList<T>`: Pagination utility
   - `DomainEvent`: Base class for domain events
+  - `AppDbContext`: Shared EF Core context that auto-discovers module configurations
+  - `IEndpoint`: Interface for minimal API endpoint registration
 
 ### 2. Modules (`MIF.Modules.*`)
 *Feature Modules (Vertical Slices).*
-- Each module is self-contained with Domain, Application, and Infrastructure.
+- Each module is self-contained with Domain, Application, Infrastructure, and Endpoints.
 - **Dependencies**: `MIF.SharedKernel` only.
 - **Example: Todos Module (`MIF.Modules.Todos`)**:
   - `Domain/`: Entities specific to Todos (e.g., `TodoItem`)
-  - `Application/`: Commands, Queries, DTOs, Validators, and Handlers
-  - `Infrastructure/`: Repository implementations
+  - `Application/`: Commands, Queries, DTOs, Validators, and Wolverine message handlers
+  - `Infrastructure/`: Repository implementations and EF Core configurations
+  - `Endpoints/`: API endpoint definitions (implements `IEndpoint`)
   - `DependencyInjection.cs`: Module registration
 
-### 3. Infrastructure (`MIF.Infrastructure`)
-*Shared Infrastructure.*
-- Contains shared infrastructure concerns.
-- **Dependencies**: Feature modules (for entity configuration).
+### 3. API (`MIF.API`)
+*RESTful API Application.*
+- The REST API entry point using Minimal APIs.
+- **Dependencies**: `MIF.SharedKernel`, Feature Modules (e.g., `MIF.Modules.Todos`).
 - **Key Components**:
-  - **EF Core**: `AppDbContext` using **SQLite**
-  - Shared database configuration
+  - **Minimal APIs**: Endpoint registration via `IEndpoint` interface
+  - **OpenAPI**: API documentation with Scalar
+  - **Database**: Configures `AppDbContext` with SQLite
+  - **Wolverine**: Message bus for CQRS with FluentValidation middleware
+  - **Module Registration**: Auto-discovers and registers module endpoints
 
 ### 4. WebUI (`MIF.WebUI`)
-*The Presentation.*
-- The entry point for the user.
-- **Dependencies**: `MIF.Infrastructure`, Feature Modules (e.g., `MIF.Modules.Todos`).
+*The Blazor Server Application.*
+- The interactive web UI entry point.
+- **Dependencies**: `MIF.SharedKernel`, Feature Modules (e.g., `MIF.Modules.Todos`).
 - **Key Components**:
   - **Blazor Server**: Interactive UI components
   - **MudBlazor**: Component library for styling
   - **Module Registration**: Registers all modules via `AddTodosModule()`
 
-## Technologies Stack
-- **Framework**: .NET 10.0
-- **UI**: Blazor Server, MudBlazor
+## Technologies Stack with MudBlazor component library
+- **API**: Minimal APIs with OpenAPI/Scalar documentation
 - **Database**: SQLite (via Entity Framework Core)
-- **Mediator**: Wolverine
+- **Messaging & CQRS**: Wolverine (with FluentValidation middleware)
 - **Validation**: FluentValidation
 - **Observability**: Azure Monitor OpenTelemetry (distro) for logs, traces, and metrics
   - **Local Development**: Console logging (no Azure dependencies)
+  - **Test/Staging/Production**: Full telemetry to Azure Application Insights
+  - **Package**: Azure.Monitor.OpenTelemetry.AspNetCore 1.3.0
+
+## Getting Started
+
+### Prerequisites
+- .NET 10.0 SDK
+- SQLite (included with EF Core)
+
+### Running the Application
+
+**API:**
+```bash
+cd src/MIF.API
+dotnet run
+```
+Access the API at `https://localhost:5001` and view the API documentation at `/scalar/v1`.
+
+**Web UI:**
+```bash
+cd src/MIF.WebUI
+dotnet run
+```
+Access the Blazor app at `https://localhost:5001`.
+
+### Running Tests
+```bash
+dotnet test
+```
+
+## Module Development Guide
+
+### Adding a New Module
+1. Create a new project: `MIF.Modules.[YourModule]`
+2. Add reference to `MIF.SharedKernel`
+3. Create the following structure:
+   - `Domain/`: Entity models
+   - `Application/`: Commands, queries, validators, and handlers
+   - `Infrastructure/`: Repository implementations and EF configurations
+   - `Endpoints/`: API endpoints (implement `IEndpoint`)
+   - `DependencyInjection.cs`: Module service registration
+
+4. Register the module in both `MIF.API` and `MIF.WebUI`:
+   ```csharp
+   builder.Services.Add[YourModule]Module();
+   builder.Host.UseWolverine(opts => {
+       opts.Discovery.IncludeAssembly(typeof([YourModule].DependencyInjection).Assembly);
+   });
+   ```
+
+### Creating Commands and Queries
+Use Wolverine's message handlers:
+
+**Command:**
+```csharp
+public record CreateTodoCommand(string Title, string Description);
+
+public static class CreateTodoHandler
+{
+    public static async Task<Result<int>> Handle(CreateTodoCommand command, ITodoRepository repository)
+    {
+        // Handle command
+    }
+}
+```
+
+**Query:**
+```csharp
+public record GetTodoQuery(int Id);
+
+public static class GetTodoHandler
+{
+    public static async Task<Result<TodoDto>> Handle(GetTodoQuery query, ITodoRepository repository)
+    {
+        // Handle query
+    }
+}
+```
+
+### Creating Endpoints
+Implement `IEndpoint` for automatic registration:
+```csharp
+public class TodoEndpoints : IEndpoint
+{
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapGet("/api/todos", async (IMessageBus bus) => 
+        {
+            var result = await bus.InvokeAsync<Result<List<TodoDto>>>(new GetTodosQuery());
+            return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
+        });
+    }
+}
+```cies)
   - **Test/Staging/Production**: Full telemetry to Azure Application Insights
   - **Package**: Azure.Monitor.OpenTelemetry.AspNetCore 1.3.0
