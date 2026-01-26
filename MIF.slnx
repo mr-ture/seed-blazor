@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MIF.API/MIF.API.csproj" />
+    <Project Path="src/MIF.Modules.Todos/MIF.Modules.Todos.csproj" />
+    <Project Path="src/MIF.SharedKernel/MIF.SharedKernel.csproj" />
+    <Project Path="src/MIF.WebUI/MIF.WebUI.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MIF.UnitTests/MIF.UnitTests.csproj" />
+  </Folder>
+</Solution>

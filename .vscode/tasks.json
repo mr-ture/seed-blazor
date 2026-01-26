@@ -1,0 +1,122 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Install InMemory EF Core for Testing",
+			"type": "shell",
+			"command": "dotnet add",
+			"args": [
+				"tests/MIF.UnitTests/MIF.UnitTests.csproj",
+				"package",
+				"Microsoft.EntityFrameworkCore.InMemory"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Remove MediatR from Application",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"remove",
+				"MediatR",
+				"src/MIF.Application/MIF.Application.csproj"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Add Wolverine to Application",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"add",
+				"src/MIF.Application/MIF.Application.csproj",
+				"package",
+				"WolverineFx"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Remove MediatR from Application Correctly",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"remove",
+				"src/MIF.Application/MIF.Application.csproj",
+				"package",
+				"MediatR"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Add Wolverine FluentValidation to Application",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"add",
+				"src/MIF.Application/MIF.Application.csproj",
+				"package",
+				"WolverineFx.FluentValidation"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Add Wolverine to WebUI",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"add",
+				"src/MIF.WebUI/MIF.WebUI.csproj",
+				"package",
+				"WolverineFx"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Build Solution",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Build Solution Again",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Build Solution Third Time",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Build Unit Tests",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"tests/MIF.UnitTests/MIF.UnitTests.csproj"
+			],
+			"isBackground": false,
+			"group": "build"
+		}
+	]
+}
