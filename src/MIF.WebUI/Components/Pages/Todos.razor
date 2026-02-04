@@ -1,0 +1,218 @@
+@page "/todos"
+@using Microsoft.AspNetCore.Authorization
+@using Wolverine
+@using MIF.SharedKernel.Application
+@using MIF.Modules.Todos.Application.DTOs
+@using MIF.Modules.Todos.Application.Queries
+@using MIF.Modules.Todos.Application.Commands
+@attribute [Authorize]
+@inject IMessageBus Bus
+@rendermode InteractiveServer
+
+<PageTitle>Todos</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4" Class="mb-4">Todo List (CQRS & MudBlazor)</MudText>
+    
+    <MudPaper Class="pa-4 mb-4">
+        <MudGrid>
+            <MudItem xs="12" sm="9">
+                <MudTextField @bind-Value="newTodoTitle" 
+                              Label="New Todo" 
+                              Variant="Variant.Outlined"
+                              OnKeyDown="HandleKeyDown"
+                              Immediate="true" />
+            </MudItem>
+            <MudItem xs="12" sm="3">
+                <MudButton Variant="Variant.Filled" 
+                           Color="Color.Primary" 
+                           OnClick="AddTodo"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           FullWidth="true"
+                           Style="height: 56px;">
+                    Add Task
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <MudAlert Severity="Severity.Error" 
+                  Variant="Variant.Filled" 
+                  Class="mb-4"
+                  CloseIcon="@Icons.Material.Filled.Close"
+                  CloseIconClicked="() => errorMessage = null">
+            @errorMessage
+        </MudAlert>
+    }
+
+    @if (todos == null)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else
+    {
+        <MudTable Items="@todos" 
+                  Hover="true" 
+                  Breakpoint="Breakpoint.Sm" 
+                  Loading="@paramsLoading"
+                  LoadingProgressColor="Color.Info">
+            <HeaderContent>
+                <MudTh Style="width: 80px;">Status</MudTh>
+                <MudTh>Title</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Status">
+                    <MudCheckBox T="bool" 
+                                 Value="@context.IsCompleted" 
+                                 ValueChanged="@(async (bool val) => await ToggleTodo(context.Id))"
+                                 Color="Color.Success" />
+                </MudTd>
+                <MudTd DataLabel="Title">
+                    <MudText Style="@(context.IsCompleted ? "text-decoration: line-through; color: gray;" : "")">
+                        @context.Title
+                    </MudText>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+
+        @if (totalCount > pageSize)
+        {
+            <MudPagination Count="@totalPages" 
+                           Selected="@pageNumber" 
+                           SelectedChanged="OnPageChanged"
+                           Class="mt-4" />
+        }
+    }
+</MudContainer>
+
+@code {
+    private List<TodoItemDto>? todos;
+    private string newTodoTitle = string.Empty;
+    private int pageNumber = 1;
+    private int pageSize = 10; 
+    private int totalPages = 1;
+    private int totalCount = 0;
+    private string? errorMessage;
+    private bool paramsLoading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTodos();
+    }
+
+    private async Task LoadTodos()
+    {
+        paramsLoading = true;
+        try 
+        {
+            var query = new GetTodosQuery(pageNumber, pageSize);
+            var result = await Bus.InvokeAsync<Result<PaginatedList<TodoItemDto>>>(query);
+            
+            if (result.IsSuccess && result.Value != null)
+            {
+                todos = result.Value.Items;
+                pageNumber = result.Value.PageNumber;
+                totalPages = result.Value.TotalPages;
+                totalCount = result.Value.TotalCount;
+                errorMessage = null;
+            }
+            else
+            {
+                errorMessage = result.Error.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading todos: {ex.Message}";
+        }
+        finally
+        {
+            paramsLoading = false;
+        }
+    }
+
+    private async Task AddTodo()
+    {
+        if (!string.IsNullOrWhiteSpace(newTodoTitle))
+        {
+            try
+            {
+                var result = await Bus.InvokeAsync<Result<int>>(new CreateTodoCommand(newTodoTitle));
+                
+                if (result.IsSuccess)
+                {
+                    newTodoTitle = string.Empty;
+                    errorMessage = null;
+                    await LoadTodos();
+                }
+                else
+                {
+                    errorMessage = result.Error.Message;
+                }
+            }
+            catch (FluentValidation.ValidationException validationEx)
+            {
+                errorMessage = string.Join("; ", validationEx.Errors.Select(e => e.ErrorMessage));
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Error adding todo: {ex.Message}";
+            }
+        }
+    }
+
+    private async Task ToggleTodo(int id)
+    {
+        // Optimistically update UI
+        var todo = todos?.FirstOrDefault(t => t.Id == id);
+        var originalState = todo?.IsCompleted ?? false;
+        
+        if (todo != null)
+        {
+            todo.IsCompleted = !todo.IsCompleted;
+            StateHasChanged();
+        }
+
+        try
+        {
+            var result = await Bus.InvokeAsync<Result>(new ToggleTodoCommand(id));
+            
+            if (result.IsFailure)
+            {
+                // Revert optimistic update
+                if (todo != null)
+                {
+                    todo.IsCompleted = originalState;
+                    StateHasChanged();
+                }
+                errorMessage = result.Error.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            // Revert optimistic update
+            if (todo != null)
+            {
+                todo.IsCompleted = originalState;
+                StateHasChanged();
+            }
+            errorMessage = $"Error toggling todo: {ex.Message}";
+        }
+    }
+
+    private async Task OnPageChanged(int page)
+    {
+        pageNumber = page;
+        await LoadTodos();
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await AddTodo();
+        }
+    }
+}

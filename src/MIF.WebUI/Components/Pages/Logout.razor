@@ -1,0 +1,82 @@
+@page "/logout"
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@using Microsoft.AspNetCore.Authentication.OpenIdConnect
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Logout</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+    <MudPaper Elevation="3" Class="pa-8">
+        <MudStack Spacing="4" AlignItems="AlignItems.Center">
+            <MudIcon Icon="@Icons.Material.Filled.Logout" Size="Size.Large" Color="Color.Warning" />
+            <MudText Typo="Typo.h4" Align="Align.Center">Sign Out</MudText>
+            
+            @if (_isAuthenticated)
+            {
+                <MudText Typo="Typo.body1" Align="Align.Center" Color="Color.Secondary">
+                    Are you sure you want to sign out @_userName?
+                </MudText>
+                
+                <MudStack Row="true" Spacing="2" Class="mt-4">
+                    <MudButton 
+                        Variant="Variant.Outlined" 
+                        Color="Color.Default"
+                        OnClick="Cancel">
+                        Cancel
+                    </MudButton>
+                    <MudButton 
+                        Variant="Variant.Filled" 
+                        Color="Color.Warning"
+                        StartIcon="@Icons.Material.Filled.Logout"
+                        OnClick="PerformLogout">
+                        Sign Out
+                    </MudButton>
+                </MudStack>
+            }
+            else
+            {
+                <MudText Typo="Typo.body1" Align="Align.Center" Color="Color.Secondary">
+                    You are not currently signed in.
+                </MudText>
+                
+                <MudButton 
+                    Variant="Variant.Filled" 
+                    Color="Color.Primary"
+                    Href="/login">
+                    Sign In
+                </MudButton>
+            }
+        </MudStack>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private bool _isAuthenticated;
+    private string? _userName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        
+        _isAuthenticated = user.Identity?.IsAuthenticated ?? false;
+        _userName = user.Identity?.Name ?? "User";
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    private void PerformLogout()
+    {
+        // Navigate to the OIDC sign-out endpoint which will:
+        // 1. Clear the local authentication cookie
+        // 2. Redirect to OKTA to end the session
+        // 3. Return to the post-logout redirect URI
+        Navigation.NavigateTo("/signout-oidc", forceLoad: true);
+    }
+}
