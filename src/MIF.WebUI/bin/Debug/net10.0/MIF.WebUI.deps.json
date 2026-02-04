@@ -1309,8 +1309,7 @@
       "MIF.SharedKernel/1.0.0": {
         "dependencies": {
           "Microsoft.EntityFrameworkCore": "10.0.2",
-          "Microsoft.EntityFrameworkCore.Sqlite": "10.0.2",
-          "System.IdentityModel.Tokens.Jwt": "8.15.0"
+          "Microsoft.EntityFrameworkCore.Sqlite": "10.0.2"
         },
         "runtime": {
           "MIF.SharedKernel.dll": {

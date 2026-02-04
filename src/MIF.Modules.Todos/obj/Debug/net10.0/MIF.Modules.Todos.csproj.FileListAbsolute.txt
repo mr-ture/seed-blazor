@@ -28,3 +28,4 @@
 /Users/rture/Documents/code/MIF2.0/src/MIF.Modules.Todos/obj/Debug/net10.0/refint/MIF.Modules.Todos.dll
 /Users/rture/Documents/code/MIF2.0/src/MIF.Modules.Todos/obj/Debug/net10.0/MIF.Modules.Todos.pdb
 /Users/rture/Documents/code/MIF2.0/src/MIF.Modules.Todos/obj/Debug/net10.0/ref/MIF.Modules.Todos.dll
+/Users/rture/Documents/code/MIF2.0/src/MIF.Modules.Todos/obj/Debug/net10.0/MIF.Modules.Todos.sourcelink.json
