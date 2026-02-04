@@ -38,27 +38,34 @@ The MIF project now uses Okta for authentication with:
    - **Client ID**
    - **Client Secret** (click "Edit" if not visible)
 
-### 1.2 Create API Service (for Web API)
+### 1.2 Configure API Access (for Web API)
 
-1. In Okta admin console, go to **Applications** > **Applications**
-2. Click **Create App Integration**
-3. Select:
-   - **Sign-in method**: API Services
-   - **Application type**: Service (Machine-to-Machine)
-4. Configure:
-   - **App integration name**: MIF API
-5. Click **Save**
-6. Note down:
-   - **Client ID**
-   - **Client Secret**
-
-### 1.3 Configure Authorization Server
+**Note**: For a Web API that validates JWT tokens issued to your Web Application (from step 1.1), you do NOT need to create a separate API Services application. The Web API will validate tokens issued by Okta's authorization server.
 
 1. Navigate to **Security** > **API** > **Authorization Servers**
-2. Select **default** authorization server (or create a custom one)
+2. Select the **default** authorization server
 3. Note down:
-   - **Issuer URI** (should be like `https://your-domain.okta.com/oauth2/default`)
-   - **Audience** (typically `api://default`)
+   - **Issuer URI**: `https://your-domain.okta.com/oauth2/default`
+   - **Audience**: `api://default` (this is the default audience claim)
+
+**Optional - Create Custom API Scope** (if you need fine-grained access control):
+
+1. In the **default** authorization server, go to the **Scopes** tab
+2. Click **Add Scope**
+3. Configure:
+   - **Name**: `api:read` or `api:access`
+   - **Description**: Access to MIF API
+   - **User consent**: Not required (since it's your own application)
+4. Click **Create**
+5. Go to the **Claims** tab and verify the `aud` (audience) claim is set correctly
+
+### 1.3 Assign Users to Application
+
+1. Ensure your user account is assigned to the Web Application created in Step 1.1:
+   - Go to **Applications** > **Applications** > **MIF WebUI**
+   - Click the **Assignments** tab
+   - Click **Assign** > **Assign to People**
+   - Select your user and click **Assign** > **Done**
 
 ## Step 2: Configure Web API
 
@@ -75,8 +82,6 @@ Update [src/MIF.API/appsettings.Development.json](src/MIF.API/appsettings.Develo
   },
   "Okta": {
     "Domain": "your-domain.okta.com",
-    "ClientId": "your-api-client-id",
-    "ClientSecret": "your-api-client-secret",
     "AuthorizationServerId": "default",
     "Audience": "api://default"
   }
@@ -85,8 +90,8 @@ Update [src/MIF.API/appsettings.Development.json](src/MIF.API/appsettings.Develo
 
 Replace:
 - `your-domain.okta.com` with your Okta domain (e.g., `dev-12345.okta.com`)
-- `your-api-client-id` with the Client ID from Step 1.2
-- `your-api-client-secret` with the Client Secret from Step 1.2
+
+**Note**: The Web API only needs the Okta domain and audience to validate JWT tokens. It does NOT need ClientId/ClientSecret because it's not authenticating itself - it's validating tokens issued to the Web Application.
 
 ## Step 3: Configure Blazor WebUI
 
