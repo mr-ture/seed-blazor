@@ -7,53 +7,24 @@
 
 <PageTitle>Login</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
-    <MudPaper Elevation="3" Class="pa-8">
-        <MudStack Spacing="4" AlignItems="AlignItems.Center">
-            <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Large" Color="Color.Primary" />
-            <MudText Typo="Typo.h4" Align="Align.Center">Welcome to MIF</MudText>
-            <MudText Typo="Typo.body1" Align="Align.Center" Color="Color.Secondary">
-                Sign in with your OKTA account to continue
-            </MudText>
-            
-            <MudButton 
-                Variant="Variant.Filled" 
-                Color="Color.Primary" 
-                Size="Size.Large" 
-                FullWidth="true"
-                StartIcon="@Icons.Material.Filled.Login"
-                Href="@GetChallengeUrl()"
-                Target="_self">
-                Sign In with OKTA
-            </MudButton>
-
-            <MudDivider DividerType="DividerType.Middle" />
-
-            <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary">
-                Secure authentication powered by OKTA
-            </MudText>
-        </MudStack>
-    </MudPaper>
-</MudContainer>
+<AuthorizeView>
+    <Authorized>
+        <a href="#">Hello, @context.User.Identity?.Name!</a>
+        <a href="Account/SignOut">Sign out</a>
+    </Authorized>
+    <NotAuthorized>
+        <a href="Account/SignIn">Sign in</a>
+    </NotAuthorized>
+</AuthorizeView>
 
 @code {
     [SupplyParameterFromQuery]
     public string? ReturnUrl { get; set; }
+    
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? Error { get; set; }
+    
+    private string? ErrorMessage { get; set; }
 
-    protected override async Task OnInitializedAsync()
-    {
-        // Check if user is already authenticated
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        if (authState.User.Identity?.IsAuthenticated == true)
-        {
-            var returnUrl = string.IsNullOrEmpty(ReturnUrl) ? "/" : ReturnUrl;
-            Navigation.NavigateTo(returnUrl);
-        }
-    }
-
-    private string GetChallengeUrl()
-    {
-        var returnUrl = string.IsNullOrEmpty(ReturnUrl) ? "/" : ReturnUrl;
-        return $"/auth/login?returnUrl={Uri.EscapeDataString(returnUrl)}";
-    }
+ 
 }

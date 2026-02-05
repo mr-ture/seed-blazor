@@ -9,6 +9,7 @@ using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Okta.AspNetCore;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,7 +43,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddMudServices();
-
+builder.Services.AddCascadingAuthenticationState();
 // Register HttpClient for API calls
 builder.Services.AddHttpClient("MIF.API", client =>
 {
@@ -56,21 +57,23 @@ builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().Cre
 // Add modules
 builder.Services.AddTodosModule();
 
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = OktaDefaults.MvcAuthenticationScheme;
-})
-.AddCookie()
-.AddOktaMvc(new OktaMvcOptions
-{
-    OktaDomain = builder.Configuration["Okta:OktaDomain"],
-    ClientId = builder.Configuration["Okta:ClientId"],
-    ClientSecret = builder.Configuration["Okta:ClientSecret"],
-    AuthorizationServerId = builder.Configuration["Okta:AuthorizationServerId"],
-    Scope = new List<string> { "openid", "profile", "email" }
-});
 
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
+    })
+    .AddCookie()
+    .AddOktaMvc(new OktaMvcOptions
+    {
+        // Replace the Okta placeholders in appsettings.json with your Okta configuration.
+        OktaDomain = builder.Configuration["Okta:OktaDomain"],
+        ClientId = builder.Configuration["Okta:ClientId"],
+        ClientSecret = builder.Configuration["Okta:ClientSecret"],
+        AuthorizationServerId = builder.Configuration["Okta:AuthorizationServerId"],
+    });
+
+builder.Services.AddControllers();
 builder.Services.AddAuthorization();
 
 // Register shared database context
@@ -106,27 +109,8 @@ app.UseAntiforgery();
 
 app.MapStaticAssets();
 
-app.MapGet("/auth/login", async (HttpContext httpContext, string returnUrl = "/") =>
-{
-    var authenticationProperties = new AuthenticationProperties
-    {
-        RedirectUri = returnUrl
-    };
 
-    await httpContext.ChallengeAsync(OktaDefaults.MvcAuthenticationScheme, authenticationProperties);
-});
-
-app.MapGet("/logout", async (HttpContext httpContext) =>
-{
-    var authenticationProperties = new AuthenticationProperties
-    {
-        RedirectUri = "/"
-    };
-
-    await httpContext.SignOutAsync(OktaDefaults.MvcAuthenticationScheme, authenticationProperties);
-    await httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-});
-
+app.MapControllers();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

@@ -21,21 +21,23 @@
                     Are you sure you want to sign out @_userName?
                 </MudText>
                 
-                <MudStack Row="true" Spacing="2" Class="mt-4">
-                    <MudButton 
-                        Variant="Variant.Outlined" 
-                        Color="Color.Default"
-                        OnClick="Cancel">
-                        Cancel
-                    </MudButton>
-                    <MudButton 
-                        Variant="Variant.Filled" 
-                        Color="Color.Warning"
-                        StartIcon="@Icons.Material.Filled.Logout"
-                        OnClick="PerformLogout">
-                        Sign Out
-                    </MudButton>
-                </MudStack>
+                <form method="post" action="/auth/logout">
+                    <MudStack Row="true" Spacing="2" Class="mt-4">
+                        <MudButton 
+                            Variant="Variant.Outlined" 
+                            Color="Color.Default"
+                            OnClick="Cancel">
+                            Cancel
+                        </MudButton>
+                        <MudButton 
+                            Variant="Variant.Filled" 
+                            Color="Color.Warning"
+                            StartIcon="@Icons.Material.Filled.Logout"
+                            ButtonType="ButtonType.Submit">
+                            Sign Out
+                        </MudButton>
+                    </MudStack>
+                </form>
             }
             else
             {
@@ -70,14 +72,5 @@
     private void Cancel()
     {
         Navigation.NavigateTo("/");
-    }
-
-    private void PerformLogout()
-    {
-        // Navigate to the OIDC sign-out endpoint which will:
-        // 1. Clear the local authentication cookie
-        // 2. Redirect to OKTA to end the session
-        // 3. Return to the post-logout redirect URI
-        Navigation.NavigateTo("/signout-oidc", forceLoad: true);
     }
 }
