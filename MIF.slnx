@@ -4,6 +4,7 @@
     <Project Path="src/MIF.Modules.Todos/MIF.Modules.Todos.csproj" />
     <Project Path="src/MIF.SharedKernel/MIF.SharedKernel.csproj" />
     <Project Path="src/MIF.UI/MIF.UI.csproj" />
+    <Project Path="src/MIF.Web/MIF.Web.csproj" />
     <Project Path="src/MIF.WebUI/MIF.WebUI.csproj" />
   </Folder>
   <Folder Name="/tests/">

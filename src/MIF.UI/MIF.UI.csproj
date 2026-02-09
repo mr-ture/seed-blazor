@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="MudBlazor" Version="8.15.0" />
     <PackageReference Include="Okta.AspNetCore" Version="5.0.0" />
   </ItemGroup>
 

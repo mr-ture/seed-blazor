@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.2" />
+    <PackageReference Include="MudBlazor" Version="8.15.0" />
+    <PackageReference Include="Okta.AspNetCore" Version="5.0.0" />
+    <PackageReference Include="WolverineFx" Version="5.14.0" />
+    <PackageReference Include="WolverineFx.FluentValidation" Version="5.14.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MIF.SharedKernel\MIF.SharedKernel.csproj" />
+    <ProjectReference Include="..\MIF.Modules.Todos\MIF.Modules.Todos.csproj" />
+  </ItemGroup>
+
+</Project>

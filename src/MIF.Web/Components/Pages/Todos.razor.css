@@ -1,0 +1,12 @@
+.add-todo-button {
+    height: 56px;
+}
+
+.todo-status-column {
+    width: 80px;
+}
+
+.todo-completed {
+    text-decoration: line-through;
+    color: gray;
+}
