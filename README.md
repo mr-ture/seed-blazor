@@ -42,24 +42,28 @@ This project follows **Vertical Slice Architecture** to organize code by feature
 - **Key Components**:
   - **Minimal APIs**: Endpoint registration via `IEndpoint` interface
   - **OpenAPI**: API documentation with Scalar
-  - **Database**: Configures `AppDbContext` with SQLite
+  - **Database**: Configures `AppDbContext` with SQL Server
   - **Wolverine**: Message bus for CQRS with FluentValidation middleware
   - **Module Registration**: Auto-discovers and registers module endpoints
 
-### 4. WebUI (`MIF.WebUI`)
-*The Blazor Server Application.*
+### 4. Web (`MIF.Web`)
+*Blazor Server Application.*
 - The interactive web UI entry point.
 - **Dependencies**: `MIF.SharedKernel`, Feature Modules (e.g., `MIF.Modules.Todos`).
 - **Key Components**:
   - **Blazor Server**: Interactive UI components
   - **MudBlazor**: Component library for styling
-  - **Module Registration**: Registers all modules via `AddTodosModule()`
+  - **Okta OIDC**: Cookie + OpenID Connect authentication
+  - **Module Registration**: Registers modules via `AddTodosModule()`
 
-## Technologies Stack with MudBlazor component library
+## Technologies Stack
+- **Framework**: .NET 10.0
+- **UI**: Blazor Server with MudBlazor component library
 - **API**: Minimal APIs with OpenAPI/Scalar documentation
-- **Database**: SQLite (via Entity Framework Core)
+- **Database**: SQL Server / Azure SQL Edge (via Entity Framework Core)
 - **Messaging & CQRS**: Wolverine (with FluentValidation middleware)
 - **Validation**: FluentValidation
+- **Authentication**: Okta (OpenID Connect)
 - **Observability**: Azure Monitor OpenTelemetry (distro) for logs, traces, and metrics
   - **Local Development**: Console logging (no Azure dependencies)
   - **Test/Staging/Production**: Full telemetry to Azure Application Insights
@@ -69,23 +73,20 @@ This project follows **Vertical Slice Architecture** to organize code by feature
 
 ### Prerequisites
 - .NET 10.0 SDK
-- SQLite (included with EF Core)
+- SQL Server or Azure SQL Edge (Docker recommended for local dev)
 
 ### Running the Application
 
 **API:**
 ```bash
-cd src/MIF.API
-dotnet run
+dotnet run --project src/MIF.API/MIF.API.csproj
 ```
-Access the API at `https://localhost:5001` and view the API documentation at `/scalar/v1`.
+Access the API at the URL printed on startup and view the API documentation at `/scalar/v1`.
 
 **Web UI:**
 ```bash
-cd src/MIF.WebUI
-dotnet run
+dotnet run --project src/MIF.Web/MIF.Web.csproj
 ```
-Access the Blazor app at `https://localhost:5001`.
 
 ### Running Tests
 ```bash
@@ -104,10 +105,11 @@ dotnet test
    - `Endpoints/`: API endpoints (implement `IEndpoint`)
    - `DependencyInjection.cs`: Module service registration
 
-4. Register the module in both `MIF.API` and `MIF.WebUI`:
+4. Register the module in `MIF.API` and `MIF.Web`:
    ```csharp
    builder.Services.Add[YourModule]Module();
-   builder.Host.UseWolverine(opts => {
+   builder.Host.UseWolverine(opts =>
+   {
        opts.Discovery.IncludeAssembly(typeof([YourModule].DependencyInjection).Assembly);
    });
    ```
@@ -146,15 +148,13 @@ Implement `IEndpoint` for automatic registration:
 ```csharp
 public class TodoEndpoints : IEndpoint
 {
-    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    public void MapEndpoint(IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGet("/api/todos", async (IMessageBus bus) => 
+        endpoints.MapGet("/api/todos", async (IMessageBus bus) =>
         {
             var result = await bus.InvokeAsync<Result<List<TodoDto>>>(new GetTodosQuery());
             return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
         });
     }
 }
-```cies)
-  - **Test/Staging/Production**: Full telemetry to Azure Application Insights
-  - **Package**: Azure.Monitor.OpenTelemetry.AspNetCore 1.3.0
+```

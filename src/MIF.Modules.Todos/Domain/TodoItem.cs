@@ -2,8 +2,8 @@ using MIF.SharedKernel.Domain;
 
 namespace MIF.Modules.Todos.Domain;
 
-public class TodoItem : EntityBase
-{
-    public string Title { get; set; } = string.Empty;
-    public bool IsCompleted { get; set; }
-}
+/// <summary>
+/// Customizable partial for todo domain behavior.
+/// Database-mapped properties are generated in <c>TodoItem.Scaffolded.cs</c>.
+/// </summary>
+public partial class TodoItem : EntityBase;

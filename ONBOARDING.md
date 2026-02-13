@@ -35,23 +35,27 @@ dotnet build
 
 ### 4. Run the Application
 
-**Blazor UI:**
+**Blazor UI (MIF.WebUI):**
 ```bash
 dotnet run --project src/MIF.WebUI/MIF.WebUI.csproj
 ```
-The application will start on **http://localhost:5096**
+
+**Blazor UI (MIF.Web):**
+```bash
+dotnet run --project src/MIF.Web/MIF.Web.csproj
+```
 
 **REST API:**
 ```bash
 dotnet run --project src/MIF.API/MIF.API.csproj
 ```
-The API will start on **http://localhost:5043**
+
+The app will print its actual URLs at startup. Use those URLs in the browser.
 
 ### 5. Access the Application
-Open your browser and navigate to:
-- **Blazor UI**: http://localhost:5096
-- **API Documentation**: http://localhost:5043/scalar/v1
-- **OpenAPI JSON**: http://localhost:5043/openapi/v1.json
+- **Blazor UI**: use the URL printed by the UI project
+- **API Documentation**: `/scalar/v1` on the API URL
+- **OpenAPI JSON**: `/openapi/v1.json` on the API URL
 
 ## 🏗️ Project Structure
 
@@ -65,7 +69,9 @@ MIF/
 │   │   ├── Infrastructure/  # Repository implementations
 │   │   └── Endpoints/       # API endpoint definitions
 │   ├── MIF.API/             # REST API host (Minimal APIs)
-│   └── MIF.WebUI/           # Blazor UI components
+│   ├── MIF.Web/             # Blazor UI (server)
+│   ├── MIF.WebUI/           # Blazor UI (server) with extra services
+│   └── MIF.UI/              # Additional UI project
 └── tests/
     └── MIF.UnitTests/       # Unit tests
 ```
@@ -85,10 +91,10 @@ MIF/
 | **.NET** | Framework | 10.0 |
 | **Blazor Server** | UI Framework | 10.0 |
 | **MudBlazor** | Component Library | 8.15.0 |
-| **Wolverine** | CQRS/Messaging | 5.11.0 |
+| **Wolverine** | CQRS/Messaging | 5.11.x |
 | **FluentValidation** | Input Validation | 12.1.1 |
 | **Entity Framework Core** | ORM | 10.0.2 |
-| **SQLite** | Database | 10.0.2 |
+| **SQL Server / Azure SQL Edge** | Database | - |
 | **Mapster** | Object Mapping | 7.4.0 |
 | **Azure Monitor OpenTelemetry** | Observability | 1.3.0 |
 
@@ -188,7 +194,7 @@ public class CreateTodoCommandValidator : AbstractValidator<CreateTodoCommand>
     {
         RuleFor(x => x.Title)
             .NotEmpty().WithMessage("Title is required")
-            .MaximumLength(10).WithMessage("Title must not exceed 10 characters");
+            .MaximumLength(200).WithMessage("Title must not exceed 200 characters");
     }
 }
 ```
@@ -258,7 +264,7 @@ public async Task<Result<TodoItem>> GetByIdAsync(int id, CancellationToken cance
 {
     try
     {
-        var item = await _dbSet.FindAsync(new object[] { id }, cancellationToken);
+        var item = await _todoItems.FindAsync(new object[] { id }, cancellationToken);
         return item != null
             ? Result.Success(item)
             : Result.Failure<TodoItem>(Error.NotFound(nameof(TodoItem), id));
@@ -270,17 +276,26 @@ public async Task<Result<TodoItem>> GetByIdAsync(int id, CancellationToken cance
 }
 ```
 
-### Adding a Database Migration
+### Database Setup (SQL Server)
 
-When you modify entities:
+This codebase currently uses a **database-first** workflow with SQL Server.
+The database is created and managed outside the app (no automatic migrations).
 
-```bash
-# Add migration
-dotnet ef migrations add MigrationName --project src/MIF.SharedKernel --startup-project src/MIF.WebUI
+#### Scaffold-first rules
 
-# Apply migration
-dotnet ef database update --project src/MIF.SharedKernel --startup-project src/MIF.WebUI
-```
+- Treat EF model shape as generated from the database.
+- Keep schema-owned members in `*.Scaffolded.cs` files.
+- Do not manually change scaffolded field mappings unless you are syncing a DB change.
+
+#### Workflow
+
+1. Apply schema change in SQL Server first.
+2. Update scaffolded EF files to match schema (`*.Scaffolded.cs` and mapping configuration).
+3. Keep custom business behavior in non-scaffold partial files.
+4. Build and run tests to confirm repository behavior.
+
+If you later adopt full `dotnet ef dbcontext scaffold` generation for all modules,
+keep generated artifacts isolated from custom logic using the same partial-file pattern.
 
 ### Adding a New Module
 
@@ -761,12 +776,10 @@ lsof -ti:5096 | xargs kill -9
 
 ### Database issues
 
-**Issue**: Database file locked or corrupted
-```bash
-# Delete the database and recreate
-rm src/MIF.WebUI/financeapp.db
-dotnet ef database update --project src/MIF.SharedKernel --startup-project src/MIF.WebUI
-```
+**Issue**: Login failed or database not found
+- Ensure SQL Server (or Azure SQL Edge) is running
+- Verify the connection string in appsettings
+- Confirm the database and tables exist
 
 ### Build errors
 

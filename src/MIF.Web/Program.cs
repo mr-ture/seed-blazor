@@ -29,7 +29,7 @@ builder.Services.AddTodosModule();
 
 // Register shared database context
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Register AppDbContext as DbContext for module repositories
 builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<AppDbContext>());
@@ -53,12 +53,7 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
-// Create database if not exists
-using (var scope = app.Services.CreateScope())
-{
-    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    dbContext.Database.EnsureCreated();
-}
+// Database-first: database is assumed to exist and is managed outside the app
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

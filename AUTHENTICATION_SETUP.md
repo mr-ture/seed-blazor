@@ -1,32 +1,29 @@
 # Authentication Setup Guide
 
 ## Overview
-Your application now uses **OpenID Connect (OIDC)** with **Okta** for authentication. The authentication layer has been completely refactored for better security, error handling, and maintainability.
+The UI projects use **OpenID Connect (OIDC)** with **Okta** for authentication.
+This is configured directly in `Program.cs` using cookie auth for sessions and OIDC for challenges.
 
-## Architecture
+## Where Authentication Is Enabled
 
-### Authentication Flow
-1. **Cookie Authentication** - Primary authentication scheme for maintaining user sessions
-2. **OpenID Connect** - Challenge/sign-out scheme for Okta integration
-3. **Minimal API Endpoints** - `/auth/login` and `/auth/logout` for authentication actions
+- **MIF.Web** (Blazor Server)
+- **MIF.WebUI** (Blazor Server)
+- **MIF.API** does not configure authentication in the current codebase
 
-### Key Components
+## Current Authentication Flow
+1. **Cookie Authentication** is the default scheme for signed-in sessions.
+2. **OpenID Connect** is the default challenge scheme (redirects to Okta).
+3. Authorization is enabled in **MIF.WebUI** (`AddAuthorization`), but there are
+   no custom login/logout endpoints in the current code.
 
-#### Program.cs - Authentication Configuration
-- **Cookie settings**: 8-hour expiration with sliding expiration
-- **OIDC settings**: PKCE enabled, proper callback paths
-- **Event handlers**: Error handling for authentication failures
-- **Token validation**: Custom claims mapping (name, groups)
+## Key Configuration (Program.cs)
 
-#### Authentication Endpoints
-- `GET /auth/login?returnUrl={url}` - Initiates OIDC login flow
-- `POST /auth/logout` - Signs out user from both cookie and OIDC
-- `GET /signout-callback-oidc` - Handles post-logout redirect
+- Cookie + Okta OIDC are registered in both UI projects.
+- Okta settings are read from configuration under the `Okta` section.
 
-#### Blazor Pages
-- `/login` - Login landing page
-- `/logout` - Logout confirmation page
-- `RedirectToLogin.razor` - Component for unauthorized access redirects
+### Files
+- [src/MIF.Web/Program.cs](src/MIF.Web/Program.cs)
+- [src/MIF.WebUI/Program.cs](src/MIF.WebUI/Program.cs)
 
 ## Okta Configuration Required
 
@@ -37,7 +34,7 @@ Your application now uses **OpenID Connect (OIDC)** with **Okta** for authentica
    - ✅ Authorization Code
    - ✅ Refresh Token (optional)
 
-3. **Sign-in redirect URIs**:
+3. **Sign-in redirect URIs** (for each UI app you run):
    ```
    https://localhost:5001/signin-oidc
    http://localhost:5000/signin-oidc
@@ -51,9 +48,9 @@ Your application now uses **OpenID Connect (OIDC)** with **Okta** for authentica
    http://localhost:5000/
    ```
 
-5. **Initiate login URI**: (Leave blank or use `https://localhost:5001/login`)
+5. **Initiate login URI**: optional (leave blank or set a UI route if you add one)
 
-### appsettings.Development.json Structure
+### appsettings.json / appsettings.Development.json Structure
 ```json
 {
   "Okta": {
@@ -65,83 +62,54 @@ Your application now uses **OpenID Connect (OIDC)** with **Okta** for authentica
 }
 ```
 
-## Current Configuration Issue
+## Where to Put Secrets
+Store Okta secrets in:
+- `src/MIF.Web/appsettings.json` or user-secrets
+- `src/MIF.WebUI/appsettings.json` or user-secrets
 
-**Problem**: Your client secret appears to be invalid or expired.
+Avoid committing real secrets to source control in production.
 
-**Solution**:
-1. Go to: https://integrator-5560650-admin.okta.com
-2. Navigate to: **Applications** → **Applications**
-3. Find your app: Client ID `0oaztfzjyvugLHkj4697`
-4. Under **General** tab → **Client Credentials**
-5. Click **Edit** → **Generate new client secret**
-6. **Copy the secret immediately** (it won't be shown again)
-7. Update `appsettings.Development.json` with the new secret
-
-## Security Features
-
-### Implemented
-- ✅ PKCE (Proof Key for Code Exchange) enabled
-- ✅ Secure cookies (HTTPS only, SameSite=Lax)
-- ✅ Token validation with issuer check
-- ✅ Claims mapping for user identity
-- ✅ Sliding session expiration
-- ✅ Proper error handling and redirects
-
-### Best Practices
-- Tokens are saved securely
-- User info endpoint is called for additional claims
-- Authentication state is validated before actions
-- Proper sign-out from both local cookies and Okta
+## What Is Not Present in Current Code
+- No custom `/auth/login` or `/auth/logout` endpoints
+- No custom OIDC event handlers or claims mapping
+- No explicit cookie options (defaults are used)
 
 ## Testing
 
 ### Test Login Flow
-1. Navigate to `/login`
-2. Click "Sign In with OKTA"
-3. Authenticate with Okta credentials
-4. Should redirect back to the return URL
+1. Navigate to a route that requires authorization.
+2. The app should redirect to Okta for sign-in.
+3. After login, you should return to the original page.
 
 ### Test Logout Flow
-1. When authenticated, POST to `/auth/logout`
-2. Should clear local session
-3. Should sign out from Okta
-4. Should redirect to home page
-
-### Test Protected Routes
-1. Try accessing a protected page without authentication
-2. Should redirect to `/login` with return URL
-3. After login, should return to original page
+Sign-out is not explicitly wired in code. If you need it, add a logout endpoint or UI action
+and call `SignOutAsync` for both cookie and OIDC schemes.
 
 ## Troubleshooting
 
 ### "Invalid client secret" Error
 - Generate a new client secret in Okta
-- Update `appsettings.Development.json`
+- Update the appropriate appsettings file or user-secrets
 - Restart the application
 
 ### Redirect Loop
 - Check that redirect URIs in Okta match exactly
 - Ensure `/signin-oidc` is registered
-- Verify `CallbackPath` setting matches
 
 ### Claims Not Available
-- Ensure `GetClaimsFromUserInfoEndpoint = true`
-- Check that required scopes are requested
-- Verify user has necessary attributes in Okta profile
+- Add explicit claims mapping and scopes in `OktaMvcOptions` if needed
+- Verify user has required attributes in Okta profile
 
 ### Session Expires Too Quickly
-- Adjust `ExpireTimeSpan` in Cookie options
-- Enable/disable `SlidingExpiration` as needed
+- Configure cookie options via `AddCookie(...)` if needed
 - Check Okta session policy settings
 
 ## Next Steps
 
-1. **Update Client Secret**: Get new secret from Okta and update config
-2. **Test Authentication**: Try the login flow
-3. **Verify Redirect URIs**: Ensure Okta app configuration matches
-4. **Add Authorization**: Implement role-based or policy-based authorization as needed
-5. **Production Config**: Move secrets to Azure Key Vault or user secrets
+1. **Confirm Okta settings** in your appsettings or user-secrets
+2. **Test authentication** by hitting a protected route
+3. **Add logout support** if required by your UX
+4. **Add policies/roles** via ASP.NET Core authorization if needed
 
 ## Additional Resources
 

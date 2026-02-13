@@ -14,7 +14,7 @@ builder.Services.AddOpenApi();
 
 // Register AppDbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Register AppDbContext as DbContext for module repositories
 builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<AppDbContext>());
