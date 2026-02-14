@@ -1,12 +1,10 @@
-using MIF.SharedKernel.Domain;
-
 namespace MIF.SharedKernel.Application;
 
 /// <summary>
 /// Repository contract for basic CRUD operations on entities.
 /// </summary>
-/// <typeparam name="T">Entity type implementing <see cref="IEntity"/>.</typeparam>
-public interface IRepository<T> where T : IEntity
+/// <typeparam name="T">Entity type.</typeparam>
+public interface IRepository<T>
 {
     /// <summary>
     /// Gets an entity by ID.

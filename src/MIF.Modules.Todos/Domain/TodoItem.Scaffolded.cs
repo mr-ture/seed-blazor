@@ -5,6 +5,8 @@ namespace MIF.Modules.Todos.Domain;
 // Re-generate from the database when schema changes.
 public partial class TodoItem
 {
+    public int Id { get; set; }
+
     public string Title { get; set; } = string.Empty;
 
     public bool IsCompleted { get; set; }

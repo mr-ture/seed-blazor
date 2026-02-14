@@ -31,8 +31,8 @@ public class GetTodosQueryHandler
             return Result.Failure<PaginatedList<TodoItemDto>>(result.Error);
         }
         
-        var paginatedTodos = result.Value!;
-        var dtos = paginatedTodos.Items.Adapt<List<TodoItemDto>>();
+        PaginatedList<Domain.TodoItem>? paginatedTodos = result.Value!;
+        List<TodoItemDto>? dtos = paginatedTodos.Items.Adapt<List<TodoItemDto>>();
 
         _logger.LogInformation("Retrieved {Count} todos out of {TotalCount} total", dtos.Count, paginatedTodos.TotalCount);
 

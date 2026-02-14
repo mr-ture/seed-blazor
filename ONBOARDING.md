@@ -28,17 +28,15 @@ cd MIF2.0
 dotnet restore
 ```
 
-### 3. Build the Solution
+### 3. Build the Projects
 ```bash
-dotnet build
+dotnet build src/MIF.SharedKernel/MIF.SharedKernel.csproj
+dotnet build src/MIF.Modules.Todos/MIF.Modules.Todos.csproj
+dotnet build src/MIF.Web/MIF.Web.csproj
+dotnet build src/MIF.API/MIF.API.csproj
 ```
 
 ### 4. Run the Application
-
-**Blazor UI (MIF.WebUI):**
-```bash
-dotnet run --project src/MIF.WebUI/MIF.WebUI.csproj
-```
 
 **Blazor UI (MIF.Web):**
 ```bash
@@ -62,7 +60,7 @@ The app will print its actual URLs at startup. Use those URLs in the browser.
 ```
 MIF/
 ├── src/
-│   ├── MIF.SharedKernel/    # Common abstractions, base classes, DbContext
+│   ├── MIF.SharedKernel/    # Common abstractions, shared contracts, DbContext
 │   ├── MIF.Modules.Todos/   # Todos feature module (vertical slice)
 │   │   ├── Domain/          # Todo entities
 │   │   ├── Application/     # Commands, queries, handlers
@@ -70,8 +68,6 @@ MIF/
 │   │   └── Endpoints/       # API endpoint definitions
 │   ├── MIF.API/             # REST API host (Minimal APIs)
 │   ├── MIF.Web/             # Blazor UI (server)
-│   ├── MIF.WebUI/           # Blazor UI (server) with extra services
-│   └── MIF.UI/              # Additional UI project
 └── tests/
     └── MIF.UnitTests/       # Unit tests
 ```
@@ -82,7 +78,7 @@ MIF/
 - **Modules**: Depend only on SharedKernel (high cohesion, low coupling)
   - Each module defines its own API endpoints via `IEndpoint` interface (implements `MapEndpoint` method)
 - **API**: Thin host that auto-discovers and maps module endpoints using `MapEndpoints()` extension
-- **WebUI**: Blazor UI, references SharedKernel and feature modules
+- **Web**: Blazor UI, references SharedKernel and feature modules
 
 ## 🔧 Key Technologies
 
@@ -371,9 +367,9 @@ var moduleAssemblies = new[] {
 builder.Services.AddEndpoints(moduleAssemblies);
 ```
 
-#### 5. Register in MIF.WebUI (if needed)
+#### 5. Register in MIF.Web (if needed)
 ```csharp
-// src/MIF.WebUI/Program.cs
+// src/MIF.Web/Program.cs
 using MIF.Modules.YourFeature;
 
 // ... other code ...
@@ -389,6 +385,15 @@ builder.Host.UseWolverine(opts =>
     opts.Discovery.IncludeAssembly(typeof(MIF.Modules.YourFeature.DependencyInjection).Assembly); // Add this
 });
 ```
+
+### Domain Events (Wolverine)
+
+Use domain events when a command should trigger side effects outside the core write operation.
+
+Current example in Todos module:
+- `ToggleTodoCommandHandler` publishes `TodoCompletedEvent` when a todo becomes completed.
+- `TodoCompletedEventHandler` handles the event via Wolverine and logs the event payload.
+- Event contracts live in `Application/Events` and are discovered automatically from module assembly scanning.
 
 ### Creating API Endpoints
 
@@ -825,13 +830,16 @@ dotnet restore
 
 ```bash
 # Build solution
-dotnet build
+dotnet build src/MIF.SharedKernel/MIF.SharedKernel.csproj
+dotnet build src/MIF.Modules.Todos/MIF.Modules.Todos.csproj
+dotnet build src/MIF.Web/MIF.Web.csproj
+dotnet build src/MIF.API/MIF.API.csproj
 
 # Run application
-dotnet run --project src/MIF.WebUI/MIF.WebUI.csproj
+dotnet run --project src/MIF.Web/MIF.Web.csproj
 
 # Run in specific environment
-ASPNETCORE_ENVIRONMENT=Staging dotnet run --project src/MIF.WebUI/MIF.WebUI.csproj
+ASPNETCORE_ENVIRONMENT=Staging dotnet run --project src/MIF.Web/MIF.Web.csproj
 
 # Run tests
 dotnet test
@@ -852,13 +860,13 @@ dotnet list package
 dotnet clean
 
 # View logs (Development - real-time console)
-dotnet run --project src/MIF.WebUI/MIF.WebUI.csproj
+dotnet run --project src/MIF.Web/MIF.Web.csproj
 
 # Save logs to file for analysis
-dotnet run --project src/MIF.WebUI/MIF.WebUI.csproj > app.log 2>&1
+dotnet run --project src/MIF.Web/MIF.Web.csproj > app.log 2>&1
 
 # Filter logs
-dotnet run --project src/MIF.WebUI/MIF.WebUI.csproj | grep "error:"
+dotnet run --project src/MIF.Web/MIF.Web.csproj | grep "error:"
 ```
 
 ## 📖 Additional Resources

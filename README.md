@@ -3,9 +3,33 @@
 ## Overview
 This project follows **Vertical Slice Architecture** to organize code by features rather than technical layers. Each feature (module) is self-contained with its own domain logic, application logic, and infrastructure, promoting high cohesion and low coupling.
 
+## Architecture Diagram
+
+```mermaid
+flowchart LR
+  User[User Browser] -->|HTTPS| Web[MIF.Web\nBlazor Server]
+  ApiClient[API Client] -->|HTTPS| API[MIF.API\nMinimal APIs]
+
+  Web -->|InvokeAsync| WolverineBus[Wolverine Message Bus]
+  API -->|InvokeAsync| WolverineBus
+
+  WolverineBus -->|Commands/Queries| TodosApp[MIF.Modules.Todos\nApplication Handlers]
+  TodosApp --> TodosRepo[TodoRepository]
+  TodosRepo --> DbCtx[AppDbContext\nMIF.SharedKernel]
+  DbCtx --> SqlDb[(SQL Server)]
+
+  TodosApp -->|Publish| TodoEvent[TodoCompletedEvent]
+  TodoEvent --> EventHandler[TodoCompletedEventHandler]
+
+  Shared[MIF.SharedKernel\nResult, IRepository, DomainEvent, IEndpoint] -.used by.-> API
+  Shared -.used by.-> Web
+  Shared -.used by.-> TodosApp
+```
+
 ## Key Architectural Patterns
 - **Vertical Slice Architecture**: Code organized by features/modules, not technical layers.
 - **CQRS (Command Query Responsibility Segregation)**: Operations split into **Commands** (writes) and **Queries** (reads) using **Wolverine**.
+- **Domain Events**: Commands can publish events (e.g., todo completion) for decoupled side effects.
 - **Repository Pattern**: Abstraction layer for data access within each module.
 - **Shared Kernel**: Common abstractions and base classes shared across modules.
 
@@ -16,7 +40,6 @@ This project follows **Vertical Slice Architecture** to organize code by feature
 - Contains shared interfaces, base classes, and utilities used across all modules.
 - **Dependencies**: None (except EF Core for data layer).
 - **Key Components**: 
-  - `IEntity`, `EntityBase`: Base entity abstractions
   - `IRepository<T>`: Generic repository interface
   - `Result<T>`: Result pattern for error handling
   - `PaginatedList<T>`: Pagination utility
@@ -28,9 +51,11 @@ This project follows **Vertical Slice Architecture** to organize code by feature
 *Feature Modules (Vertical Slices).*
 - Each module is self-contained with Domain, Application, Infrastructure, and Endpoints.
 - **Dependencies**: `MIF.SharedKernel` only.
+- **Data Modeling**: Database-first, scaffold-first workflow. Schema-owned fields live in `*.Scaffolded.cs` files.
 - **Example: Todos Module (`MIF.Modules.Todos`)**:
   - `Domain/`: Entities specific to Todos (e.g., `TodoItem`)
   - `Application/`: Commands, Queries, DTOs, Validators, and Wolverine message handlers
+  - `Application/Events`: Domain events and Wolverine event handlers (e.g., `TodoCompletedEvent`)
   - `Infrastructure/`: Repository implementations and EF Core configurations
   - `Endpoints/`: API endpoint definitions (implements `IEndpoint`)
   - `DependencyInjection.cs`: Module registration
@@ -92,6 +117,12 @@ dotnet run --project src/MIF.Web/MIF.Web.csproj
 ```bash
 dotnet test
 ```
+
+### Database Workflow
+
+- Schema changes are applied in SQL Server first.
+- Then update module scaffolded EF model shape (`*.Scaffolded.cs`) and mapping configuration.
+- Keep custom business behavior in non-scaffold partial files.
 
 ## Module Development Guide
 
