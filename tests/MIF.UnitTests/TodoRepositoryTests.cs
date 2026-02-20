@@ -111,4 +111,32 @@ public class TodoRepositoryTests
             Assert.Contains(result.Value.Items, t => t.Title == "Todo 10");
         }
     }
+
+    [Fact]
+    public async Task DeleteAsync_ShouldRemoveTodoItem()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(databaseName: "DeleteTodosDatabase")
+            .Options;
+
+        using (var context = new AppDbContext(options))
+        {
+            context.Set<TodoItem>().Add(new TodoItem { Id = 1, Title = "Delete Me", IsCompleted = false });
+            await context.SaveChangesAsync();
+        }
+
+        using (var context = new AppDbContext(options))
+        {
+            var repository = new TodoRepository(context);
+            var result = await repository.DeleteAsync(1, CancellationToken.None);
+
+            Assert.True(result.IsSuccess);
+        }
+
+        using (var context = new AppDbContext(options))
+        {
+            var item = await context.Set<TodoItem>().FindAsync(1);
+            Assert.Null(item);
+        }
+    }
 }

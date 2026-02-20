@@ -15,18 +15,14 @@
     <MudText Typo="Typo.h4" Class="mb-4">Todo List (CQRS & MudBlazor)</MudText>
 
     <MudPaper Class="pa-4 mb-4">
-        <MudGrid>
-            <MudItem xs="12" sm="9">
-                <MudTextField @bind-Value="newTodoTitle" Label="New Todo" Variant="Variant.Outlined"
-                    OnKeyDown="HandleKeyDown" Immediate="true" />
-            </MudItem>
-            <MudItem xs="12" sm="3">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AddTodo"
-                    StartIcon="@Icons.Material.Filled.Add" FullWidth="true" Class="add-todo-button">
-                    Add Task
-                </MudButton>
-            </MudItem>
-        </MudGrid>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+            <MudTextField @bind-Value="newTodoTitle" Label="New Todo" Variant="Variant.Outlined"
+                OnKeyDown="HandleKeyDown" Immediate="true" Class="todo-input" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AddTodo"
+                StartIcon="@Icons.Material.Filled.Add" Class="add-todo-button">
+                Add Task
+            </MudButton>
+        </MudStack>
     </MudPaper>
 
     @if (!string.IsNullOrEmpty(errorMessage))
@@ -48,6 +44,7 @@
             <HeaderContent>
                 <MudTh Class="todo-status-column">Status</MudTh>
                 <MudTh>Title</MudTh>
+                <MudTh>Actions</MudTh>
             </HeaderContent>
             <RowTemplate>
                 <MudTd DataLabel="Status">
@@ -58,6 +55,14 @@
                     <MudText Class="@(context.IsCompleted ? "todo-completed" : "")">
                         @context.Title
                     </MudText>
+                </MudTd>
+                <MudTd DataLabel="Actions">
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                        Color="Color.Error"
+                        Size="Size.Small"
+                        Variant="Variant.Text"
+                        OnClick="@(async () => await DeleteTodo(context.Id))"
+                        aria-label="Delete todo" />
                 </MudTd>
             </RowTemplate>
         </MudTable>
@@ -181,6 +186,32 @@
                 StateHasChanged();
             }
             errorMessage = $"Error toggling todo: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteTodo(int id)
+    {
+        try
+        {
+            var result = await Bus.InvokeAsync<Result>(new DeleteTodoCommand(id));
+
+            if (result.IsSuccess)
+            {
+                errorMessage = null;
+                if (pageNumber > 1 && todos != null && todos.Count == 1)
+                {
+                    pageNumber--;
+                }
+                await LoadTodos();
+            }
+            else
+            {
+                errorMessage = result.Error.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error deleting todo: {ex.Message}";
         }
     }
 

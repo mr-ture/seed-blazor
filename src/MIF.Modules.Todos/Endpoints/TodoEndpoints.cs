@@ -42,5 +42,14 @@ public class TodoEndpoints : IEndpoint
                 ? Results.NoContent() 
                 : Results.BadRequest(result.Error);
         });
+
+        group.MapDelete("/{id}", async (int id, IMessageBus bus) =>
+        {
+            var command = new DeleteTodoCommand(id);
+            var result = await bus.InvokeAsync<Result>(command);
+            return result.IsSuccess
+                ? Results.NoContent()
+                : Results.BadRequest(result.Error);
+        });
     }
 }
