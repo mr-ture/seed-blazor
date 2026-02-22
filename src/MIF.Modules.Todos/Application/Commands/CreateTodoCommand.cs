@@ -6,7 +6,9 @@ using Microsoft.Extensions.Logging;
 
 namespace MIF.Modules.Todos.Application.Commands;
 
-public record CreateTodoCommand(string Title);
+using MIF.Modules.Todos.Domain;
+
+public record CreateTodoCommand(string Title, string AssignedTo, Importance Importance);
 
 public class CreateTodoCommandValidator : AbstractValidator<CreateTodoCommand>
 {
@@ -15,6 +17,12 @@ public class CreateTodoCommandValidator : AbstractValidator<CreateTodoCommand>
         RuleFor(v => v.Title)
             .NotEmpty().WithMessage("Title is required.")
             .MaximumLength(10).WithMessage("Title must not exceed 10 characters.");
+
+        RuleFor(v => v.AssignedTo)
+            .NotEmpty().WithMessage("Assigned To is required.");
+
+        RuleFor(v => v.Importance)
+            .IsInEnum().WithMessage("Importance must be a valid value.");
     }
 }
 
@@ -31,16 +39,18 @@ public class CreateTodoCommandHandler
 
     public async Task<Result<int>> Handle(CreateTodoCommand command, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Creating new todo with title: {Title}", command.Title);
-        
+        _logger.LogInformation("Creating new todo with title: {Title}, assigned to: {AssignedTo}, importance: {Importance}", command.Title, command.AssignedTo, command.Importance);
+
         var entity = new TodoItem
         {
             Title = command.Title,
-            IsCompleted = false
+            IsCompleted = false,
+            AssignedTo = command.AssignedTo,
+            Importance = command.Importance
         };
-        
+
         var result = await _repository.AddAsync(entity, cancellationToken);
-        
+
         if (result.IsFailure)
         {
             _logger.LogWarning("Failed to create todo: {Error}", result.Error.Message);
@@ -48,7 +58,7 @@ public class CreateTodoCommandHandler
         }
 
         _logger.LogInformation("Todo created successfully with ID: {TodoId}", result.Value);
-        
+
         return Result.Success(result.Value);
     }
 }

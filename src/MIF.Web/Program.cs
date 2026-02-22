@@ -7,7 +7,6 @@ using Microsoft.EntityFrameworkCore;
 using MIF.Modules.Todos;
 using Wolverine;
 using Wolverine.FluentValidation;
-using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,7 +20,6 @@ builder.Host.UseWolverine(opts =>
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddMudServices();
 builder.Services.AddCascadingAuthenticationState();
 
 // Add modules

@@ -3,6 +3,7 @@ using MIF.Modules.Todos.Application.DTOs;
 using MIF.Modules.Todos.Application;
 using Microsoft.Extensions.Logging;
 using Mapster;
+using MIF.Modules.Todos.Domain;
 
 namespace MIF.Modules.Todos.Application.Queries;
 
@@ -17,6 +18,10 @@ public class GetTodosQueryHandler
     {
         _repository = repository;
         _logger = logger;
+
+        // Mapster config: handle null AssignedTo and Importance
+        TypeAdapterConfig<TodoItem, TodoItemDto>.NewConfig()
+            .Map(dest => dest.AssignedTo, src => src.AssignedTo ?? string.Empty);
     }
 
     public async Task<Result<PaginatedList<TodoItemDto>>> Handle(GetTodosQuery query, CancellationToken cancellationToken)

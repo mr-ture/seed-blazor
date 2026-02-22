@@ -19,7 +19,6 @@
     <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.Workspaces" Version="5.0.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="5.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.2" />
-    <PackageReference Include="MudBlazor" Version="8.15.0" />
     <PackageReference Include="Okta.AspNetCore" Version="5.0.0" />
     <PackageReference Include="WolverineFx" Version="5.14.0" />
     <PackageReference Include="WolverineFx.FluentValidation" Version="5.14.0" />
