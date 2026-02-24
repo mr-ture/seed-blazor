@@ -1,5 +1,4 @@
 ﻿@page "/weather"
-@attribute [StreamRendering]
 
 <PageTitle>Weather</PageTitle>
 
@@ -13,30 +12,22 @@
 }
 else
 {
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th aria-label="Temperature in Celsius">Temp. (C)</th>
-                <th aria-label="Temperature in Fahrenheit">Temp. (F)</th>
-                <th>Summary</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var forecast in forecasts)
-            {
-                <tr>
-                    <td>@forecast.Date.ToShortDateString()</td>
-                    <td>@forecast.TemperatureC</td>
-                    <td>@forecast.TemperatureF</td>
-                    <td>@forecast.Summary</td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    <TelerikGrid Data="@forecasts" TItem="WeatherForecast"
+                 Pageable="true"
+                 Sortable="true"
+                 FilterMode="@GridFilterMode.FilterMenu"
+                 Width="50vw">
+        <GridColumns>
+            <GridColumn Field="@nameof(WeatherForecast.Date)" Title="Date" DisplayFormat="{0:D}" />
+            <GridColumn Field="@nameof(WeatherForecast.TemperatureC)" Title="Temp. (C)" />
+            <GridColumn Field="@nameof(WeatherForecast.TemperatureF)" Title="Temp. (F)" />
+            <GridColumn Field="@nameof(WeatherForecast.Summary)" Title="Summary" />
+        </GridColumns>
+    </TelerikGrid>
 }
 
 @code {
+    private const string IdColumnId = "id-column";
     private WeatherForecast[]? forecasts;
 
     protected override async Task OnInitializedAsync()

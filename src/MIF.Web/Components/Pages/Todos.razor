@@ -8,202 +8,108 @@
 @using MIF.Modules.Todos.Domain
 @* @attribute [Authorize] *@
 @inject IMessageBus Bus
-@rendermode InteractiveServer
+
 
 <PageTitle>Todos</PageTitle>
 
-<div class="container mt-4">
-    <h2 class="mb-4">Todo List</h2>
+<h2>Todo List</h2>
 
-    <div class="card p-3 mb-4">
-        <div class="row g-2 align-items-center">
-            <div class="col-12 col-md-4">
-                <input class="form-control todo-input"
-                placeholder="New Todo"
-                @bind="newTodoTitle"
-                @bind:event="oninput"
-                @onkeydown="HandleKeyDown" />
-            </div>
-            <div class="col-12 col-md-4">
-                <input class="form-control"
-                    placeholder="Assigned To"
-                    @bind="newTodoAssignedTo"
-                    @bind:event="oninput"
-                    @onkeydown="HandleKeyDown" />
-            </div>
-            <div class="col-8 col-md-2">
-                <select class="form-select" @bind="newTodoImportance">
-                    <option value="@Importance.Low">Low</option>
-                    <option value="@Importance.Medium">Medium</option>
-                    <option value="@Importance.High">High</option>
-                </select>
-            </div>
-            <div class="col-4 col-md-2 d-grid">
-                <button type="button" class="btn btn-primary add-todo-button" @onclick="AddTodo">Add Task</button>
-            </div>
+<TelerikCard>
+    <CardHeader>
+        <CardTitle>Add New Todo</CardTitle>
+    </CardHeader>
+    <CardBody>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;" @onkeydown="HandleKeyDown">
+            <TelerikTextBox @bind-Value="newTodoTitle"
+                            Placeholder="New Todo"
+                            Width="200px" />
+            <TelerikTextBox @bind-Value="newTodoAssignedTo"
+                            Placeholder="Assigned To"
+                            Width="200px" />
+            <TelerikDropDownList TItem="ImportanceOption"
+                                 TValue="Importance"
+                                 @bind-Value="newTodoImportance"
+                                 Data="importanceLevels"
+                                 TextField="Text"
+                                 ValueField="Value"
+                                 Width="140px" />
+            <TelerikButton OnClick="AddTodo" ThemeColor="Primary">Add Task</TelerikButton>
         </div>
+    </CardBody>
+</TelerikCard>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div style="background:#f8d7da;color:#842029;padding:12px 16px;border-radius:4px;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;">
+        <span>@errorMessage</span>
+        <TelerikButton OnClick="ClearError" ThemeColor="Base" FillMode="flat">✕</TelerikButton>
     </div>
+}
 
-    @if (!string.IsNullOrEmpty(errorMessage))
-    {
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            @errorMessage
-            <button type="button" class="btn-close" @onclick="ClearError" aria-label="Close"></button>
-        </div>
-    }
-
-    @if (todos == null || paramsLoading)
-    {
-        <div class="d-flex align-items-center gap-2">
-            <div class="spinner-border text-primary" role="status"></div>
-            <span>Loading todos...</span>
-        </div>
-    }
-    else
-    {
-        <div class="table-responsive">
-            <table class="table table-hover align-middle">
-                <thead>
-                    <tr>
-                        <th class="todo-status-column">Status</th>
-                        <th>Title</th>
-                        <th>Assigned To</th>
-                        <th>Importance</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @if (todos.Count == 0)
-                    {
-                        <tr>
-                            <td colspan="5" class="text-muted">No todos yet.</td>
-                        </tr>
-                    }
-                    else
-                    {
-                        @foreach (var todo in todos)
-                        {
-                            <tr>
-                                <td>
-                                    <input type="checkbox"
-                                        checked="@todo.IsCompleted"
-                                        @onchange="@((ChangeEventArgs _) => ToggleTodo(todo.Id))" />
-                                </td>
-                                <td>
-                                    @if (editingTodoId == todo.Id)
-                                    {
-                                        <input class="form-control form-control-sm" @bind="editTitle" />
-                                    }
-                                    else
-                                    {
-                                        <span class="@(todo.IsCompleted ? "todo-completed" : "")">@todo.Title</span>
-                                    }
-                                </td>
-                                <td>
-                                    @if (editingTodoId == todo.Id)
-                                    {
-                                        <input class="form-control form-control-sm" @bind="editAssignedTo" />
-                                    }
-                                    else
-                                    {
-                                        @todo.AssignedTo
-                                    }
-                                </td>
-                                <td>
-                                    @if (editingTodoId == todo.Id)
-                                    {
-                                        <select class="form-select form-select-sm" @bind="editImportance">
-                                            <option value="@Importance.Low">Low</option>
-                                            <option value="@Importance.Medium">Medium</option>
-                                            <option value="@Importance.High">High</option>
-                                        </select>
-                                    }
-                                    else
-                                    {
-                                        @todo.Importance
-                                    }
-                                </td>
-                                <td>
-                                    @if (editingTodoId == todo.Id)
-                                    {
-                                        <div class="d-flex gap-1">
-                                            <button type="button"
-                                                class="btn btn-sm btn-success"
-                                                @onclick="@(() => SaveTodo(todo.Id))"
-                                                aria-label="Save todo">
-                                                Save
-                                            </button>
-                                            <button type="button"
-                                                class="btn btn-sm btn-secondary"
-                                                @onclick="CancelEdit"
-                                                aria-label="Cancel edit">
-                                                Cancel
-                                            </button>
-                                        </div>
-                                    }
-                                    else
-                                    {
-                                        <div class="d-flex gap-1">
-                                            <button type="button"
-                                                class="btn btn-sm btn-outline-primary"
-                                                @onclick="@(() => BeginEdit(todo))"
-                                                aria-label="Edit todo">
-                                                Edit
-                                            </button>
-                                            <button type="button"
-                                                class="btn btn-sm btn-outline-danger"
-                                                @onclick="@(() => DeleteTodo(todo.Id))"
-                                                aria-label="Delete todo">
-                                                Delete
-                                            </button>
-                                        </div>
-                                    }
-                                </td>
-                            </tr>
-                        }
-                    }
-                </tbody>
-            </table>
-        </div>
-
-        @if (totalCount > pageSize)
-        {
-            <nav aria-label="Todo pagination" class="mt-3">
-                <ul class="pagination">
-                    <li class="page-item @(pageNumber == 1 ? "disabled" : "")">
-                        <button class="page-link" type="button" @onclick="PrevPage">Previous</button>
-                    </li>
-                    @for (var i = 1; i <= totalPages; i++)
-                    {
-                        var page = i;
-                        <li class="page-item @(pageNumber == page ? "active" : "")">
-                            <button class="page-link" type="button" @onclick="() => OnPageChanged(page)">@(page)</button>
-                        </li>
-                    }
-                    <li class="page-item @(pageNumber == totalPages ? "disabled" : "")">
-                        <button class="page-link" type="button" @onclick="NextPage">Next</button>
-                    </li>
-                </ul>
-            </nav>
-        }
-    }
-</div>
+<TelerikGrid Data="@todos"
+             TItem="TodoItemDto"
+             Pageable="true"
+             Sortable="true"
+             PageSize="@pageSize"
+             EditMode="@GridEditMode.Inline"
+             OnUpdate="OnUpdateHandler"
+             OnDelete="OnDeleteHandler">
+    <GridColumns>
+        <GridColumn Field="@nameof(TodoItemDto.IsCompleted)" Title="Done" Width="80px" Editable="false">
+            <Template Context="item">
+                @{ var todo = (TodoItemDto)item; }
+                <TelerikCheckBox Value="@todo.IsCompleted"
+                                 ValueChanged="@(async (bool _) => await ToggleTodo(todo.Id))"
+                                 ValueExpression="@(() => todo.IsCompleted)" />
+            </Template>
+        </GridColumn>
+        <GridColumn Field="@nameof(TodoItemDto.Title)" Title="Title" />
+        <GridColumn Field="@nameof(TodoItemDto.AssignedTo)" Title="Assigned To" />
+        <GridColumn Field="@nameof(TodoItemDto.Importance)" Title="Importance">
+            <Template Context="item">
+                @{ var importanceItem = (TodoItemDto)item; }
+                @importanceItem.Importance
+            </Template>
+            <EditorTemplate Context="item">
+                @{ var editItem = (TodoItemDto)item; }
+                <TelerikDropDownList TItem="ImportanceOption"
+                                     TValue="Importance"
+                                     @bind-Value="editItem.Importance"
+                                     Data="importanceLevels"
+                                     TextField="Text"
+                                     ValueField="Value" />
+            </EditorTemplate>
+        </GridColumn>
+        <GridCommandColumn>
+            <GridCommandButton Command="Edit" ThemeColor="Primary">Edit</GridCommandButton>
+            <GridCommandButton Command="Delete" ThemeColor="Error">Delete</GridCommandButton>
+            <GridCommandButton Command="Save" ThemeColor="Success" ShowInEdit="true">Save</GridCommandButton>
+            <GridCommandButton Command="Cancel" ShowInEdit="true">Cancel</GridCommandButton>
+        </GridCommandColumn>
+    </GridColumns>
+</TelerikGrid>
 
 @code {
-    private List<TodoItemDto>? todos;
+    private List<TodoItemDto> todos = new();
+
+    private class ImportanceOption
+    {
+        public string Text { get; init; } = string.Empty;
+        public Importance Value { get; init; }
+    }
+
+    private readonly List<ImportanceOption> importanceLevels =
+    [
+        new() { Text = "Low", Value = Importance.Low },
+        new() { Text = "Medium", Value = Importance.Medium },
+        new() { Text = "High", Value = Importance.High }
+    ];
+
     private string newTodoTitle = string.Empty;
     private string newTodoAssignedTo = string.Empty;
     private Importance newTodoImportance = Importance.Medium;
-    private int? editingTodoId;
-    private string editTitle = string.Empty;
-    private string editAssignedTo = string.Empty;
-    private Importance editImportance = Importance.Medium;
-    private int pageNumber = 1;
     private int pageSize = 10;
-    private int totalPages = 1;
-    private int totalCount = 0;
     private string? errorMessage;
-    private bool paramsLoading = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -212,18 +118,14 @@
 
     private async Task LoadTodos()
     {
-        paramsLoading = true;
         try
         {
-            var query = new GetTodosQuery(pageNumber, pageSize);
-            var result = await Bus.InvokeAsync<Result<PaginatedList<TodoItemDto>>>(query);
+            var result = await Bus.InvokeAsync<Result<PaginatedList<TodoItemDto>>>(
+                new GetTodosQuery(1, int.MaxValue));
 
             if (result.IsSuccess && result.Value != null)
             {
                 todos = result.Value.Items;
-                pageNumber = result.Value.PageNumber;
-                totalPages = result.Value.TotalPages;
-                totalCount = result.Value.TotalCount;
                 errorMessage = null;
             }
             else
@@ -234,10 +136,6 @@
         catch (Exception ex)
         {
             errorMessage = $"Error loading todos: {ex.Message}";
-        }
-        finally
-        {
-            paramsLoading = false;
         }
     }
 
@@ -280,56 +178,13 @@
 
     private async Task ToggleTodo(int id)
     {
-        // Optimistically update UI
-        var todo = todos?.FirstOrDefault(t => t.Id == id);
-        var originalState = todo?.IsCompleted ?? false;
-
-        if (todo != null)
-        {
-            todo.IsCompleted = !todo.IsCompleted;
-            StateHasChanged();
-        }
-
         try
         {
             var result = await Bus.InvokeAsync<Result>(new ToggleTodoCommand(id));
 
-            if (result.IsFailure)
-            {
-                // Revert optimistic update
-                if (todo != null)
-                {
-                    todo.IsCompleted = originalState;
-                    StateHasChanged();
-                }
-                errorMessage = result.Error.Message;
-            }
-        }
-        catch (Exception ex)
-        {
-            // Revert optimistic update
-            if (todo != null)
-            {
-                todo.IsCompleted = originalState;
-                StateHasChanged();
-            }
-            errorMessage = $"Error toggling todo: {ex.Message}";
-        }
-    }
-
-    private async Task DeleteTodo(int id)
-    {
-        try
-        {
-            var result = await Bus.InvokeAsync<Result>(new DeleteTodoCommand(id));
-
             if (result.IsSuccess)
             {
                 errorMessage = null;
-                if (pageNumber > 1 && todos != null && todos.Count == 1)
-                {
-                    pageNumber--;
-                }
                 await LoadTodos();
             }
             else
@@ -339,43 +194,20 @@
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error deleting todo: {ex.Message}";
+            errorMessage = $"Error toggling todo: {ex.Message}";
         }
     }
 
-    private void BeginEdit(TodoItemDto todo)
+    private async Task OnUpdateHandler(GridCommandEventArgs args)
     {
-        editingTodoId = todo.Id;
-        editTitle = todo.Title;
-        editAssignedTo = todo.AssignedTo;
-        editImportance = todo.Importance;
-        errorMessage = null;
-    }
-
-    private void CancelEdit()
-    {
-        editingTodoId = null;
-        editTitle = string.Empty;
-        editAssignedTo = string.Empty;
-        editImportance = Importance.Medium;
-    }
-
-    private async Task SaveTodo(int id)
-    {
-        if (string.IsNullOrWhiteSpace(editTitle) || string.IsNullOrWhiteSpace(editAssignedTo))
-        {
-            errorMessage = "Title and Assigned To are required.";
-            return;
-        }
-
+        var todo = (TodoItemDto)args.Item;
         try
         {
             var result = await Bus.InvokeAsync<Result>(
-                new UpdateTodoCommand(id, editTitle, editAssignedTo, editImportance));
+                new UpdateTodoCommand(todo.Id, todo.Title, todo.AssignedTo, todo.Importance));
 
             if (result.IsSuccess)
             {
-                CancelEdit();
                 errorMessage = null;
                 await LoadTodos();
             }
@@ -394,32 +226,33 @@
         }
     }
 
-    private async Task OnPageChanged(int page)
+    private async Task OnDeleteHandler(GridCommandEventArgs args)
     {
-        pageNumber = page;
-        await LoadTodos();
+        var todo = (TodoItemDto)args.Item;
+        try
+        {
+            var result = await Bus.InvokeAsync<Result>(new DeleteTodoCommand(todo.Id));
+
+            if (result.IsSuccess)
+            {
+                errorMessage = null;
+                await LoadTodos();
+            }
+            else
+            {
+                errorMessage = result.Error.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error deleting todo: {ex.Message}";
+        }
     }
 
     private Task ClearError()
     {
         errorMessage = null;
         return Task.CompletedTask;
-    }
-
-    private async Task PrevPage()
-    {
-        if (pageNumber > 1)
-        {
-            await OnPageChanged(pageNumber - 1);
-        }
-    }
-
-    private async Task NextPage()
-    {
-        if (pageNumber < totalPages)
-        {
-            await OnPageChanged(pageNumber + 1);
-        }
     }
 
     private async Task HandleKeyDown(KeyboardEventArgs e)

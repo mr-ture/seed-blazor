@@ -20,6 +20,10 @@ builder.Host.UseWolverine(opts =>
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// Add Telerik Blazor server side services
+builder.Services.AddTelerikBlazor();
+
+
 builder.Services.AddCascadingAuthenticationState();
 
 // Add modules

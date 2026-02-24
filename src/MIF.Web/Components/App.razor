@@ -13,12 +13,20 @@
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
     <HeadOutlet />
+    	<link href="lib/blazor-ui/swatches/bootstrap-main.css" rel="stylesheet" type="text/css" />
+	<script src="_content/Telerik.UI.for.Blazor/js/telerik-blazor.js" defer></script>
+
 </head>
 
 <body>
-    <Routes />
+    <Routes @rendermode="InteractiveServer" />
     <ReconnectModal />
-    <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <script src="@Assets["_framework/blazor.web.js"]" autostart="false"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+           Blazor.start();
+        });
+    </script>
 </body>
 
 </html>

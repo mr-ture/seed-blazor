@@ -1,0 +1,10 @@
+
+
+.todo-status-column {
+    width: 80px;
+}
+
+.todo-completed {
+    text-decoration: line-through;
+    color: gray;
+}
